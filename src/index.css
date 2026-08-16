@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+:root {
+  --bg-dark: #07090e;
+  --bg-card: rgba(13, 17, 28, 0.85);
+  --bg-card-hover: rgba(22, 28, 45, 0.9);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(0, 242, 254, 0.35);
+
+  /* Persona Colors - Default (Female: Ananya) */
+  --accent-primary: #ff0844;
+  --accent-secondary: #ffb199;
+  --accent-glow: rgba(255, 8, 68, 0.35);
+  --accent-gradient: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+  --accent-rgb: 255, 8, 68;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --danger-color: #ff4b4b;
+  --danger-glow: rgba(255, 75, 75, 0.4);
+
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+/* Male Persona (Aarav) Theme Override */
+[data-persona="aarav"] {
+  --accent-primary: #00f2fe;
+  --accent-secondary: #4facfe;
+  --accent-glow: rgba(0, 242, 254, 0.35);
+  --accent-gradient: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  --accent-rgb: 0, 242, 254;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Strict Viewport Lock: ZERO SCROLLING PERMITTED! */
+html, body {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-body);
+}
+
+#root {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Studio Cyber Background Backdrop */
+.cyber-backdrop {
+  background-image: 
+    radial-gradient(circle at 50% 25%, rgba(var(--accent-rgb), 0.15) 0%, transparent 55%),
+    radial-gradient(circle at 15% 85%, rgba(147, 51, 234, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.06) 0%, transparent 40%),
+    linear-gradient(to bottom, #07090e 0%, #030407 100%);
+}
+
+/* Custom Scrollbar for inner modals */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 14, 26, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* Glassmorphic Container */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.glass-panel:hover {
+  border-color: var(--border-highlight);
+}
+
+/* Custom Buttons */
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #000;
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.4);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(var(--accent-rgb), 0.6);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ff4b4b 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px var(--danger-glow);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 5, 10, 0.9);
+  backdrop-filter: blur(16px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
