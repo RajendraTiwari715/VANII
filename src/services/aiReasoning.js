@@ -1,11 +1,11 @@
 /**
  * VANII Core AI Reasoning Engine (Jarvis 6-Layer Architecture)
- * Fully aligned with Next-Generation Blueprint:
- * 1. Full-Duplex Sub-600ms Conversational Turn-Taking & Muted Observer Mode ("be quiet", "shant raho").
- * 2. Speaker Biometrics: Neural Voiceprint Cosine Similarity Gating (Sim >= 0.78).
- * 3. 4-Tier Memory Stack: Working (LangGraph), Semantic (Mem0 RRF), Episodic, Procedural (LangMem Reflection).
- * 4. Proactive Heartbeat Daemon: Utility-based vocal dispatches.
- * 5. Edge Failover & Sandboxed High-Risk Action Guardrails.
+ * Fully aligned with Next-Generation Blueprint & AI Life Companion Capabilities:
+ * 1. 3D Embodied Avatar & Viseme Lip-Syncing Expression Controller.
+ * 2. Home Assistant Native MCP & Context-Aware IoT Scene Automation ("Mujhe neend aa rahi hai").
+ * 3. Multi-Agent Delegation: Asynchronous background sub-agent workers without voice blocking.
+ * 4. Sleep-Phase Memory Consolidation & Ambient Acoustic Classification.
+ * 5. Speaker Biometrics (Sim >= 0.78), Muted Observer, and Mem0 Cognitive Hierarchy.
  */
 
 import { fetchGeminiResponse } from './geminiService';
@@ -24,6 +24,10 @@ import { proactiveDaemonInstance } from './proactiveHeartbeatDaemon';
 import { langMemEngineInstance } from './langMemReflectionEngine';
 import { edgeFailoverInstance } from './edgeFailoverWatchdog';
 import { rrfEngineInstance } from './reciprocalRankFusion';
+import { avatarLipSyncInstance } from './avatarLipSyncEngine';
+import { homeAssistantInstance } from './homeAssistantMCP';
+import { multiAgentDelegationInstance } from './multiAgentDelegationEngine';
+import { sleepConsolidationInstance } from './sleepConsolidationEngine';
 
 export class AIReasoningEngine {
   constructor() {
@@ -39,10 +43,12 @@ export class AIReasoningEngine {
 
     const qLower = queryText.toLowerCase().replace(/[\?\.\!\,]/g, '').trim();
 
+    // Set Avatar Micro-Expression
+    avatarLipSyncInstance.setExpression(emotionState);
+
     // 0. Speaker Identification & Biometrics Gating (Sim >= 0.78)
     const speakerAuth = speakerBiometricsInstance.verifySpeaker(acousticMetrics);
     if (!speakerAuth.isAuthorized && acousticMetrics?.energyRMS > 0.15) {
-      // Reject non-operator background chatter to prevent context pollution
       return {
         isCrisis: false,
         responseText: '',
@@ -97,15 +103,9 @@ export class AIReasoningEngine {
       };
     }
 
-    // If in Muted Observer mode, silently absorb context without vocal output
     if (this.isMutedObserver) {
       mem0EngineInstance.addMemory(`Silent observation: "${queryText}"`, 'observation');
-      return {
-        isCrisis: false,
-        responseText: '',
-        emotionIntent: 'Calm / Neutral',
-        latencyMs: Date.now() - startTime,
-      };
+      return { isCrisis: false, responseText: '', emotionIntent: 'Calm / Neutral', latencyMs: Date.now() - startTime };
     }
 
     // 0.3 Direct Human Callout Replies (Sub-5ms Bypass)
@@ -122,7 +122,40 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.4 Short-Term State Tracking: Elliptical Turn Resolution ("chalu karo", "gana play karo", "pause karo", "dusra gana")
+    // 0.4 Home Assistant Context-Aware Automation (e.g. "Mujhe neend aa rahi hai", "AC thanda karo", "Movie mode")
+    const homeScene = homeAssistantInstance.evaluateContextScene(qLower);
+    if (homeScene) {
+      dialogueStateInstance.recordTurn(queryText, homeScene.spokenFeedback);
+      mem0EngineInstance.addMemory(`Raj activated home scene: ${homeScene.sceneActivated}`, 'behavior');
+      return {
+        isCrisis: false,
+        responseText: homeScene.spokenFeedback,
+        emotionIntent: 'Calm / Neutral',
+        latencyMs: Date.now() - startTime,
+        toolExecuted: 'home_assistant_mcp',
+      };
+    }
+
+    // 0.5 Multi-Agent Background Delegation (e.g. "Research karke report banao", "Sub-agent ko task do")
+    if (
+      qLower.includes('research karke') ||
+      qLower.includes('report banao') ||
+      qLower.includes('sub-agent') ||
+      qLower.includes('background me task') ||
+      qLower.includes('deep analysis karo')
+    ) {
+      const delegationResult = multiAgentDelegationInstance.delegateTask(queryText, 'Autonomous_Research_SubAgent');
+      dialogueStateInstance.recordTurn(queryText, delegationResult.spokenAck);
+      return {
+        isCrisis: false,
+        responseText: delegationResult.spokenAck,
+        emotionIntent: 'Joy / Enthusiasm',
+        latencyMs: Date.now() - startTime,
+        toolExecuted: 'multi_agent_delegation',
+      };
+    }
+
+    // 0.6 Short-Term State Tracking: Elliptical Turn Resolution ("chalu karo", "gana play karo", "pause karo", "dusra gana")
     const favoriteMusicPref = mem0EngineInstance.getFavoriteMusicPreference();
     const ellipticalRes = dialogueStateInstance.resolveEllipticalTurn(qLower, favoriteMusicPref);
     if (ellipticalRes.isElliptical) {
@@ -160,12 +193,12 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.5 Strict Deterministic Tools (Direct YouTube Stream, WhatsApp, Weather, Time, Tools)
+    // 0.7 Strict Deterministic Tools (Direct YouTube Stream, WhatsApp, Weather, Time, Tools)
     const fastLocalActionResult = await this._handleStrictLocalIntent(qLower, isFemale);
     if (fastLocalActionResult) {
       const sanitizedResponse = guardrailsEngineInstance.evaluateOutputRails(fastLocalActionResult.spokenText);
       dialogueStateInstance.recordTurn(queryText, sanitizedResponse);
-      mem0EngineInstance.addMemory(`Raj executed action: ${fastLocalActionResult.toolName}`, 'behavior');
+      mem0EngineInstance.addMemory(`Raj commanded action: ${fastLocalActionResult.toolName}`, 'behavior');
       langMemEngineInstance.logTurn(queryText, sanitizedResponse, 'positive');
 
       return {
@@ -177,7 +210,7 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.6 Polymorphic Persona Intent Classifier
+    // 0.8 Polymorphic Persona Intent Classifier
     const personaShift = this._detectPersonaShiftIntent(qLower, isFemale);
     if (personaShift) {
       cognitiveMemoryInstance.setDynamicPersonaRole(personaShift.role, personaShift.customPrompt);
@@ -201,13 +234,14 @@ export class AIReasoningEngine {
       };
     }
 
-    // 2. LAYER 4: Mem0 Cognitive Memory Context + LangMem Procedural Updates
+    // 2. LAYER 4: Mem0 Cognitive Memory Context + Sleep Consolidation + LangMem
     const mem0Context = mem0EngineInstance.getAffectiveSystemContext(
       dialogueStateInstance.activeMediaEntity,
       dialogueStateInstance.playbackStatus
     );
+    const sleepInsights = sleepConsolidationInstance.getConsolidatedSummary();
     const proceduralContext = langMemEngineInstance.getReflectedInstructions();
-    const unifiedSystemPromptAddon = `${mem0Context}\n\n[LANGMEM PROCEDURAL GUIDELINES]\n${proceduralContext}`;
+    const unifiedSystemPromptAddon = `${mem0Context}\n\n[OVERNIGHT CONSOLIDATED INSIGHTS]\n${sleepInsights}\n\n[LANGMEM PROCEDURAL GUIDELINES]\n${proceduralContext}`;
 
     // 3. LAYER 1: Cloud Gemini Multimodal Live API with Affective Context
     let geminiResult = await fetchGeminiResponse(
@@ -361,27 +395,7 @@ export class AIReasoningEngine {
       return { toolName: 'get_current_time', spokenText: spoken };
     }
 
-    // 6. Explicit Smart Home Lights Intent
-    const isLightCmd = /\b(light on|light off|batti jalao|batti bujhao|roshni badlo|ambient light)\b/i.test(q);
-    if (isLightCmd) {
-      await mcpHostInstance.callTool('control_ambient_lighting', { brightness: 60, color: 'warm_amber', scene: 'relax' });
-      const spoken = isFemale
-        ? 'जी राज, मैंने कमरे की रोशनी को बहुत ही शांत और मधुर वॉर्म एम्बर मूड में सेट कर दिया है।'
-        : 'जी हुज़ूर राज जी, मैंने कमरे की रोशनी को शांत वॉर्म एम्बर परिवेश में सेट कर दिया है।';
-      return { toolName: 'control_ambient_lighting', spokenText: spoken };
-    }
-
-    // 7. Explicit Thermostat / AC Intent
-    const isAcCmd = /\b(ac on|ac off|ac ka temperature|thermostat badlo|ac 24 karo)\b/i.test(q);
-    if (isAcCmd) {
-      await mcpHostInstance.callTool('control_thermostat', { temperatureCelsius: 24, mode: 'eco' });
-      const spoken = isFemale
-        ? 'जी राज, मैंने एसी का तापमान चौबीस डिग्री सेल्सियस पर अनुकूलित कर दिया है।'
-        : 'जी हुज़ूर राज जी, मैंने वातानुकूलन का तापमान चौबीस डिग्री सेल्सियस पर नियत कर दिया है।';
-      return { toolName: 'control_thermostat', spokenText: spoken };
-    }
-
-    // 8. Explicit Memory Update Intent
+    // 6. Explicit Memory Update Intent
     const isMemoryCmd = /\b(yaad rakhna|remember that|mera naya)\b/i.test(q);
     if (isMemoryCmd) {
       mem0EngineInstance.addMemory(q, 'explicit_user_fact');

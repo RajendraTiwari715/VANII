@@ -1,7 +1,30 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { avatarLipSyncInstance } from '../services/avatarLipSyncEngine';
 
 export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, persona, onToggleListening }) => {
   const canvasRef = useRef(null);
+  const [avatarState, setAvatarState] = useState({
+    viseme: 'sil',
+    mouthOpen: 0.0,
+    expression: 'calm',
+    eyeBlink: 0.0,
+    headTilt: { x: 0, y: 0, z: 0 },
+    isSpeaking: false,
+  });
+
+  useEffect(() => {
+    const unsub = avatarLipSyncInstance.subscribe((state) => {
+      setAvatarState(state);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    avatarLipSyncInstance.setSpeakingState(isAISpeaking);
+    if (isAISpeaking && metrics) {
+      avatarLipSyncInstance.processAudioFrame(metrics.energyRMS || 0.05, metrics.f0Pitch || 170);
+    }
+  }, [isAISpeaking, metrics]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,13 +45,10 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
 
       const isFemale = persona === 'ananya';
 
-      // COLOR HUES:
-      // If AI is speaking -> VIBRANT EMERALD GREEN (145, 100%, 50%)
-      // If Listening -> MAGENTA / CYAN (340 / 185)
       const cyanHue = isAISpeaking ? '145, 100%, 50%' : isFemale ? '340, 100%, 65%' : '185, 100%, 50%';
       const magentaHue = isAISpeaking ? '160, 100%, 45%' : isFemale ? '25, 100%, 65%' : '300, 100%, 60%';
 
-      // 1. Ambient Background Glow (Glows vibrant NEON GREEN when AI speaks!)
+      // 1. Ambient Background Glow
       const bgGradient = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -43,29 +63,7 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Dynamic Green Signal Beams when AI Speaks
-      if (isAISpeaking) {
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        const rayCount = 12;
-        for (let r = 0; r < rayCount; r++) {
-          const angle = (r / rayCount) * Math.PI * 2 + time * 0.5;
-          const rayLen = 160 + Math.sin(time * 6 + r) * 40;
-          const rayGrad = ctx.createLinearGradient(0, 0, Math.cos(angle) * rayLen, Math.sin(angle) * rayLen);
-          rayGrad.addColorStop(0, 'rgba(16, 230, 110, 0.8)');
-          rayGrad.addColorStop(1, 'rgba(16, 230, 110, 0)');
-
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(angle) * rayLen, Math.sin(angle) * rayLen);
-          ctx.strokeStyle = rayGrad;
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // 3. 3D Orbit Rings
+      // 2. 3D Orbit Rings
       const ringRadii = [80, 110, 140, 170];
       ringRadii.forEach((radius, idx) => {
         const ringAlpha = (isAISpeaking ? 0.65 : isListening ? 0.45 : 0.25) + Math.sin(time + idx) * 0.1;
@@ -86,11 +84,11 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
         ctx.restore();
       });
 
-      // 4. Central Floating Holographic Sphere (NEON GREEN PULSE WHEN SPEAKING)
-      const sphereRadius = 44 + (isAISpeaking ? Math.sin(time * 6) * 12 : isListening ? Math.sin(time * 3) * 5 : 0) + rms * 50;
+      // 3. Central 3D Embodied Avatar Core with Real-Time Lip-Sync
+      const sphereRadius = 52 + (isAISpeaking ? Math.sin(time * 6) * 8 : isListening ? Math.sin(time * 3) * 4 : 0) + rms * 30;
 
       ctx.save();
-      ctx.translate(centerX, centerY);
+      ctx.translate(centerX + (avatarState.headTilt?.x || 0), centerY + (avatarState.headTilt?.y || 0));
 
       const sphereGrad = ctx.createRadialGradient(
         -sphereRadius * 0.3,
@@ -101,33 +99,86 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
         sphereRadius
       );
       sphereGrad.addColorStop(0, `hsla(${cyanHue}, 0.95)`);
-      sphereGrad.addColorStop(0.5, `hsla(${magentaHue}, 0.6)`);
+      sphereGrad.addColorStop(0.6, `hsla(${magentaHue}, 0.6)`);
       sphereGrad.addColorStop(1, 'transparent');
 
       ctx.beginPath();
       ctx.arc(0, 0, sphereRadius, 0, Math.PI * 2);
       ctx.fillStyle = sphereGrad;
       ctx.shadowColor = isAISpeaking ? 'rgba(16, 240, 120, 1)' : `hsla(${cyanHue}, ${isListening ? 1.0 : 0.7})`;
-      ctx.shadowBlur = isAISpeaking ? 45 : isListening ? 35 : 20;
+      ctx.shadowBlur = isAISpeaking ? 40 : isListening ? 30 : 18;
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Sphere Grid Lines
-      ctx.strokeStyle = isAISpeaking ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.35)';
-      ctx.lineWidth = 1;
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const rad = (lat * Math.PI) / 180;
-        const r = sphereRadius * Math.cos(rad);
-        ctx.beginPath();
-        ctx.ellipse(0, sphereRadius * Math.sin(rad) * 0.4, r, r * 0.3, 0, 0, Math.PI * 2);
+      // 4. Embodied Avatar Facial Features (Eyes, Eyebrows, Dynamic Lip-Sync Mouth)
+      // Eyes (Glowing with Blinking)
+      const eyeOffsetY = -12;
+      const eyeSpacing = 18;
+      const blinkScale = 1.0 - (avatarState.eyeBlink || 0) * 0.85;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 10;
+
+      // Left Eye
+      ctx.beginPath();
+      ctx.ellipse(-eyeSpacing, eyeOffsetY, 5, 6 * blinkScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right Eye
+      ctx.beginPath();
+      ctx.ellipse(eyeSpacing, eyeOffsetY, 5, 6 * blinkScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eye pupils (Look towards user)
+      ctx.fillStyle = isAISpeaking ? '#003311' : isFemale ? '#330011' : '#001133';
+      ctx.beginPath();
+      ctx.arc(-eyeSpacing, eyeOffsetY, 2.5 * blinkScale, 0, Math.PI * 2);
+      ctx.arc(eyeSpacing, eyeOffsetY, 2.5 * blinkScale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Eyebrows (Micro-Expression deformation)
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      const browTilt = avatarState.expression === 'happy' ? -2 : avatarState.expression === 'concerned' ? 3 : 0;
+
+      ctx.beginPath();
+      ctx.moveTo(-eyeSpacing - 7, eyeOffsetY - 9 + browTilt);
+      ctx.lineTo(-eyeSpacing + 7, eyeOffsetY - 9 - browTilt);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(eyeSpacing - 7, eyeOffsetY - 9 - browTilt);
+      ctx.lineTo(eyeSpacing + 7, eyeOffsetY - 9 + browTilt);
+      ctx.stroke();
+
+      // REAL-TIME LIP-SYNC MOUTH (Visemes: aa, ee, oo, oh, sil)
+      const mouthOffsetY = 16;
+      const mouthOpenness = Math.max(2, (avatarState.mouthOpen || 0) * 16 + (isAISpeaking ? Math.sin(time * 12) * 5 + 6 : 2));
+      const mouthWidth = avatarState.viseme === 'ee' ? 22 : avatarState.viseme === 'oo' ? 10 : 16;
+
+      ctx.fillStyle = isAISpeaking ? '#ff4488' : '#ffffff';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      if (isAISpeaking) {
+        // Dynamic Phoneme Viseme Aperture
+        ctx.ellipse(0, mouthOffsetY, mouthWidth, mouthOpenness, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Gentle Natural Smile when idle
+        ctx.arc(0, mouthOffsetY - 4, 12, 0.2 * Math.PI, 0.8 * Math.PI, false);
         ctx.stroke();
       }
 
       ctx.restore();
 
-      // 5. 3D Equalizer Frequency Soundwave Spectrum Ring (NEON GREEN WAVELENGTHS)
+      // 5. 3D Equalizer Frequency Soundwave Spectrum Ring
       const numBars = 120;
-      const spectrumRadius = 140;
+      const spectrumRadius = 145;
 
       ctx.save();
       ctx.translate(centerX, centerY);
@@ -164,12 +215,12 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
 
     render();
     return () => cancelAnimationFrame(animId);
-  }, [metrics, isListening, isAISpeaking, persona]);
+  }, [metrics, isListening, isAISpeaking, persona, avatarState]);
 
   return (
     <div
       onClick={onToggleListening}
-      className={`relative w-full h-full min-h-[240px] max-h-[400px] flex items-center justify-center overflow-hidden rounded-3xl border transition-all duration-300 cursor-pointer ${
+      className={`relative w-full h-full min-h-[260px] max-h-[420px] flex items-center justify-center overflow-hidden rounded-3xl border transition-all duration-300 cursor-pointer ${
         isAISpeaking
           ? 'border-emerald-400 shadow-2xl shadow-emerald-500/50 bg-black/90 ring-4 ring-emerald-400/60'
           : isListening
@@ -178,6 +229,12 @@ export const HolographicVisualizer = ({ metrics, isListening, isAISpeaking, pers
       }`}
     >
       <canvas ref={canvasRef} className="w-full h-full block pointer-events-none" />
+
+      {/* Visual Avatar Telemetry Status */}
+      <div className="absolute bottom-3 left-4 z-30 px-3 py-1 rounded-full bg-slate-950/80 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 flex items-center gap-2 pointer-events-none">
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        <span>3D Embodied Avatar: {isAISpeaking ? '🗣️ Viseme Lip-Syncing' : '👁️ Attentive Gaze'} ({avatarState.expression})</span>
+      </div>
 
       {/* Visual Green Signal Badge Overlay when Agent Responds */}
       {isAISpeaking && (
