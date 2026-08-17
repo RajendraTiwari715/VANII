@@ -1,10 +1,11 @@
 /**
  * VANII Core AI Reasoning Engine (Jarvis 6-Layer Architecture)
- * Fully aligned with Technical Architecture Blueprint:
- * 1. Short-Term Dialogue State Tracking (DST): S_t = <M_t, E_t, A_t, U_id> with seamless Elliptical Turn Resolution.
- * 2. Deterministic Direct Media Streaming: Dynamic song resolution for ANY song in the world (Zero hardcoded track loops).
- * 3. Mem0 Persistent Cognitive Long-Term Memory.
- * 4. Microsoft Edge Neural Voice Prosody & Emotion Modulation.
+ * Fully aligned with Next-Generation Blueprint:
+ * 1. Full-Duplex Sub-600ms Conversational Turn-Taking & Muted Observer Mode ("be quiet", "shant raho").
+ * 2. Speaker Biometrics: Neural Voiceprint Cosine Similarity Gating (Sim >= 0.78).
+ * 3. 4-Tier Memory Stack: Working (LangGraph), Semantic (Mem0 RRF), Episodic, Procedural (LangMem Reflection).
+ * 4. Proactive Heartbeat Daemon: Utility-based vocal dispatches.
+ * 5. Edge Failover & Sandboxed High-Risk Action Guardrails.
  */
 
 import { fetchGeminiResponse } from './geminiService';
@@ -18,8 +19,17 @@ import { edgeInferenceInstance } from './edgeInferenceRouter';
 import { dialogueStateInstance } from './dialogueStateMachine';
 import { mem0EngineInstance } from './mem0Engine';
 import { directStreamingInstance } from './directStreamingEngine';
+import { speakerBiometricsInstance } from './speakerBiometrics';
+import { proactiveDaemonInstance } from './proactiveHeartbeatDaemon';
+import { langMemEngineInstance } from './langMemReflectionEngine';
+import { edgeFailoverInstance } from './edgeFailoverWatchdog';
+import { rrfEngineInstance } from './reciprocalRankFusion';
 
 export class AIReasoningEngine {
+  constructor() {
+    this.isMutedObserver = false;
+  }
+
   async generateResponse(userInput, acousticMetrics, persona = 'ananya', language = 'hi') {
     const startTime = Date.now();
     const isFemale = persona === 'ananya';
@@ -29,38 +39,81 @@ export class AIReasoningEngine {
 
     const qLower = queryText.toLowerCase().replace(/[\?\.\!\,]/g, '').trim();
 
-    // 0. Immediate Stop / Quiet Command Detection (Instant Zero-Latency Halt)
+    // 0. Speaker Identification & Biometrics Gating (Sim >= 0.78)
+    const speakerAuth = speakerBiometricsInstance.verifySpeaker(acousticMetrics);
+    if (!speakerAuth.isAuthorized && acousticMetrics?.energyRMS > 0.15) {
+      // Reject non-operator background chatter to prevent context pollution
+      return {
+        isCrisis: false,
+        responseText: '',
+        emotionIntent: 'Calm / Neutral',
+        latencyMs: Date.now() - startTime,
+        rejectedAsBackgroundChatter: true,
+      };
+    }
+
+    // 0.1 Muted Observer Mode Handling ("be quiet", "stop talking", "shant raho", "mute yourself")
     if (
-      qLower === 'shant' ||
-      qLower === 'शांत' ||
-      qLower === 'chup' ||
-      qLower === 'चुप' ||
-      qLower === 'ruko' ||
-      qLower === 'रुको' ||
-      qLower === 'stop' ||
-      qLower.includes('shant raho') ||
-      qLower.includes('शांत रहो') ||
-      qLower.includes('chup raho') ||
-      qLower.includes('चुप रहो') ||
-      qLower.includes('khamosh') ||
-      qLower === 'ruk jao' ||
-      qLower === 'रुक जाओ'
+      qLower === 'be quiet' ||
+      qLower === 'stop talking' ||
+      qLower === 'shant raho' ||
+      qLower === 'शांत रहो' ||
+      qLower === 'chup raho' ||
+      qLower === 'चुप रहो' ||
+      qLower === 'mute yourself' ||
+      qLower === 'mute ho jao'
     ) {
+      this.isMutedObserver = true;
+      proactiveDaemonInstance.setMutedObserver(true);
       dialogueStateInstance.setPlaybackStatus('stopped');
       directStreamingInstance.pauseStream();
       return {
         isCrisis: false,
-        responseText: isFemale ? 'जी राज, मैं रुक गई।' : 'जी राज, मैं शांत हूँ।',
+        responseText: isFemale ? 'जी राज, मैं म्यूटेड आब्जर्वर मोड में हूँ।' : 'जी राज, म्यूट मोड सक्रिय है।',
+        emotionIntent: 'Calm / Neutral',
+        latencyMs: Date.now() - startTime,
+        isMutedObserver: true,
+      };
+    }
+
+    // 0.2 Unmute / Wake from Muted Observer Mode
+    if (
+      qLower === 'resume speaking' ||
+      qLower === 'start talking' ||
+      qLower === 'unmute' ||
+      qLower === 'boliye' ||
+      qLower === 'बोलिए' ||
+      qLower === 'baat karo' ||
+      qLower === 'बात करो'
+    ) {
+      this.isMutedObserver = false;
+      proactiveDaemonInstance.setMutedObserver(false);
+      const ack = isFemale ? 'जी राज, ऑडियो चैनल पुनः सक्रिय है। आज्ञा दीजिए।' : 'जी हुज़ूर राज, मैं उपस्थित हूँ। कहिए।';
+      return {
+        isCrisis: false,
+        responseText: ack,
+        emotionIntent: 'Joy / Enthusiasm',
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
+    // If in Muted Observer mode, silently absorb context without vocal output
+    if (this.isMutedObserver) {
+      mem0EngineInstance.addMemory(`Silent observation: "${queryText}"`, 'observation');
+      return {
+        isCrisis: false,
+        responseText: '',
         emotionIntent: 'Calm / Neutral',
         latencyMs: Date.now() - startTime,
       };
     }
 
-    // 0.1 Direct Human Callout Replies (Sub-5ms Bypass)
+    // 0.3 Direct Human Callout Replies (Sub-5ms Bypass)
     const calloutResponse = this._getHumanCalloutReply(qLower, isFemale);
     if (calloutResponse) {
       dialogueStateInstance.recordTurn(queryText, calloutResponse);
-      mem0EngineInstance.addMemory(`Raj initiated interaction with greeting: "${queryText}"`, 'interaction');
+      mem0EngineInstance.addMemory(`Raj called: "${queryText}"`, 'interaction');
+      langMemEngineInstance.logTurn(queryText, calloutResponse, 'positive');
       return {
         isCrisis: false,
         responseText: calloutResponse,
@@ -69,7 +122,7 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.2 SHORT-TERM STATE TRACKING: Elliptical Turn Resolution ("chalu karo", "gana play karo", "pause karo", "dusra gana")
+    // 0.4 Short-Term State Tracking: Elliptical Turn Resolution ("chalu karo", "gana play karo", "pause karo", "dusra gana")
     const favoriteMusicPref = mem0EngineInstance.getFavoriteMusicPreference();
     const ellipticalRes = dialogueStateInstance.resolveEllipticalTurn(qLower, favoriteMusicPref);
     if (ellipticalRes.isElliptical) {
@@ -80,7 +133,6 @@ export class AIReasoningEngine {
         return { isCrisis: false, responseText: spoken, emotionIntent: 'Calm / Neutral', latencyMs: Date.now() - startTime };
       }
 
-      // Direct Stream Play / Resume / Change to Next Song
       const targetQuery = ellipticalRes.resolvedEntity?.query || ellipticalRes.resolvedEntity?.track || 'Trending Bollywood Hits';
       const streamResult = directStreamingInstance.resolveDirectStream(targetQuery);
 
@@ -97,6 +149,7 @@ export class AIReasoningEngine {
 
       dialogueStateInstance.recordTurn(queryText, spoken);
       mem0EngineInstance.addMemory(`Raj listened to ${streamResult.title}`, 'preference');
+      langMemEngineInstance.logTurn(queryText, spoken, 'positive');
 
       return {
         isCrisis: false,
@@ -107,12 +160,13 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.3 FAST DETERMINISTIC INTENT ROUTER (Direct YouTube Stream, WhatsApp, Weather, Time, Tools)
+    // 0.5 Strict Deterministic Tools (Direct YouTube Stream, WhatsApp, Weather, Time, Tools)
     const fastLocalActionResult = await this._handleStrictLocalIntent(qLower, isFemale);
     if (fastLocalActionResult) {
       const sanitizedResponse = guardrailsEngineInstance.evaluateOutputRails(fastLocalActionResult.spokenText);
       dialogueStateInstance.recordTurn(queryText, sanitizedResponse);
-      mem0EngineInstance.addMemory(`Raj commanded action: ${fastLocalActionResult.toolName}`, 'behavior');
+      mem0EngineInstance.addMemory(`Raj executed action: ${fastLocalActionResult.toolName}`, 'behavior');
+      langMemEngineInstance.logTurn(queryText, sanitizedResponse, 'positive');
 
       return {
         isCrisis: false,
@@ -123,7 +177,7 @@ export class AIReasoningEngine {
       };
     }
 
-    // 0.4 Polymorphic Persona Intent Classifier
+    // 0.6 Polymorphic Persona Intent Classifier
     const personaShift = this._detectPersonaShiftIntent(qLower, isFemale);
     if (personaShift) {
       cognitiveMemoryInstance.setDynamicPersonaRole(personaShift.role, personaShift.customPrompt);
@@ -147,29 +201,22 @@ export class AIReasoningEngine {
       };
     }
 
-    // 2. LAYER 1: Speaker Diarization & Voice Verification
-    const _diarization = asrRouterInstance.diarizeAndVerifySpeaker(
-      acousticMetrics?.f0Pitch || 150,
-      acousticMetrics?.energyRMS || 0.05
-    );
-
-    // 3. LAYER 6: Smart Routing Decision
-    const routingDecision = edgeInferenceInstance.routeTask(queryText);
-
-    // 4. LAYER 4: Mem0 Multi-Signal Hybrid Retrieval & Long-Term Context Injection
+    // 2. LAYER 4: Mem0 Cognitive Memory Context + LangMem Procedural Updates
     const mem0Context = mem0EngineInstance.getAffectiveSystemContext(
       dialogueStateInstance.activeMediaEntity,
       dialogueStateInstance.playbackStatus
     );
+    const proceduralContext = langMemEngineInstance.getReflectedInstructions();
+    const unifiedSystemPromptAddon = `${mem0Context}\n\n[LANGMEM PROCEDURAL GUIDELINES]\n${proceduralContext}`;
 
-    // 5. LAYER 1: Cloud Gemini Multimodal Live API with Affective Context
+    // 3. LAYER 1: Cloud Gemini Multimodal Live API with Affective Context
     let geminiResult = await fetchGeminiResponse(
       queryText,
       persona,
       language,
       emotionState,
       emotionConfidence,
-      mem0Context
+      unifiedSystemPromptAddon
     );
 
     let finalResponse = '';
@@ -181,19 +228,19 @@ export class AIReasoningEngine {
         : 'जी राज, मैं उपस्थित हूँ। कहिए क्या सेवा करूँ?';
     }
 
-    // 6. LAYER 5: Colang 2.0 Output Guardrails Sanitization
+    // 4. LAYER 5: Colang 2.0 Output Guardrails Sanitization
     const sanitizedOutput = guardrailsEngineInstance.evaluateOutputRails(finalResponse);
 
-    // 7. Update Dialogue State and Mem0 Memory
+    // 5. Update Dialogue State and Long-Term Memory
     dialogueStateInstance.recordTurn(queryText, sanitizedOutput);
     memoryStoreInstance.processUserInput(queryText, emotionState);
+    langMemEngineInstance.logTurn(queryText, sanitizedOutput, 'neutral');
 
     return {
       isCrisis: false,
       responseText: sanitizedOutput,
       emotionIntent: emotionState,
       latencyMs: Date.now() - startTime,
-      routingTier: routingDecision.tier,
     };
   }
 
@@ -227,7 +274,7 @@ export class AIReasoningEngine {
   }
 
   async _handleStrictLocalIntent(q, isFemale) {
-    // 1. Explicit Direct Media Stream Command (Handles ANY song dynamically)
+    // 1. Explicit Direct Media Stream Command
     const isExplicitMusicCmd =
       q.includes('youtube') ||
       q.includes('यूट्यूब') ||
